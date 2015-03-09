@@ -7,3 +7,6 @@ https://github.com/tvmani/QuickRecon/
 
 
 https://github.com/tvmani/QuickRecon.git
+
+Nuget packages used:
+Install-Package System.Data.SQLite
