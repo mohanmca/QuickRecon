@@ -1,7 +1,9 @@
-﻿using System.Data;
+﻿using System;
+using System.Data;
 using System.Data.Common;
 using System.Data.SQLite;
 using System.Data.SQLite.Linq;
+using System.Linq;
 using System.Text;
 
 namespace QuickRecon
@@ -40,10 +42,11 @@ namespace QuickRecon
             }
         }
         //string sql = "create table highscores (name varchar(20), score int)";
-        public static string GetCreateTableQuery(SQLiteConnection connection, DataTable dataTable, string tableName)
+        public static string GetCreateTableQuery(DataTable dataTable, string tableName)
         {
             StringBuilder createTableSql = new StringBuilder();
             createTableSql.Append("create table " + tableName + " (");
+           
             for (int i = 0; i < dataTable.Columns.Count; i++)
             {
                 createTableSql.Append(dataTable.Columns[i].ColumnName + " varchar(20)");
@@ -57,7 +60,7 @@ namespace QuickRecon
             return createTableSql.ToString();
         }
 
-        public static void CreateTable(SQLiteConnection connection, string queryText)
+        public static void ExecuteQueryText(SQLiteConnection connection, string queryText)
         {
             SQLiteCommand command = new SQLiteCommand(queryText, connection);
             command.ExecuteNonQuery();
@@ -76,18 +79,93 @@ namespace QuickRecon
             {
                 var newRow = dataSet.Tables[0].NewRow();
 
-                for (int j = 0; j < dataTable.Columns.Count; j++)
-                {
-                    newRow[j] = dataTable.Rows[i][j];
-                }
+                createRow(dataTable.Rows[i], newRow);
 
                 dataSet.Tables[0].Rows.Add(newRow);
             }
-            
             new SQLiteCommandBuilder(dataAdapter);
             dataAdapter.Update(dataSet);
         }
 
+        private static void createRow(DataRow memoryRow, DataRow sqlRow)
+        {
+            //memoryRow.ItemArray.Select((o, i) => sqlRow.ItemArray[i] = o);
+            memoryRow.ItemArray.Select((o, i) => sqlRow[i] = o).AsParallel().ToArray();
+        }
+        public static string GetQueryTextCommonRecords(DataTable dataTable)
+        {
+            StringBuilder query = new StringBuilder();
+            query.Append("insert into result ");
+            query.Append("select ");
+            query.Append(GetColumnNames(dataTable, "s"));
+            query.Append("\"Available in both\"");
+            query.Append(" from source s join target t on s.");
+            query.Append("date");
+            query.Append(" = ");
+            query.Append("t.");
+            query.Append("date");
+            query.Append(" and ");
+            query.Append("s.");
+            query.Append("symbol");
+            query.Append(" = ");
+            query.Append("t.");
+            query.Append("symbol");
+            return query.ToString();
+        }
 
+        public static string GetQueryTextLeftRecords(DataTable dataTable)
+        {
+            StringBuilder query = new StringBuilder();
+            query.Append("insert into result ");
+            query.Append("select ");
+            query.Append(GetColumnNames(dataTable, "s"));
+            query.Append("\"Available in source\"");
+            query.Append(" from source s left join target t on s.");
+            query.Append("date");
+            query.Append(" = ");
+            query.Append("t.");
+            query.Append("date");
+            query.Append(" and ");
+            query.Append("s.");
+            query.Append("symbol");
+            query.Append(" = ");
+            query.Append("t.");
+            query.Append("symbol");
+            query.Append(" where t.date is null and t.symbol is null");
+            return query.ToString();
+        }
+
+        public static String GetQueryTextRightRecords(DataTable dataTable)
+        {
+            StringBuilder query = new StringBuilder();
+            query.Append("insert into result ");
+            query.Append("select ");
+            query.Append(GetColumnNames(dataTable, "t"));
+            query.Append("\"Available in target\"");
+            query.Append(" from  target t  left join source s on s.");
+            query.Append("date");
+            query.Append(" = ");
+            query.Append("t.");
+            query.Append("date");
+            query.Append(" and ");
+            query.Append("s.");
+            query.Append("symbol");
+            query.Append(" = ");
+            query.Append("t.");
+            query.Append("symbol");
+            query.Append(" where s.date is null and s.symbol is null");
+            return query.ToString();
+        }
+
+        public static string GetColumnNames(DataTable dataTable, string aliasName)
+        {
+            StringBuilder columnNames = new StringBuilder();
+
+            for (int i = 0; i < dataTable.Columns.Count; i++)
+            {
+                columnNames.Append(aliasName+ "." + dataTable.Columns[i].ColumnName + ",");
+            }
+            return columnNames.ToString();
+        }
     }
 }

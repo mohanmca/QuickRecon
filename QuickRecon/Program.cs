@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
+
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -12,29 +13,47 @@ namespace QuickRecon
     {
         static void Main(string[] args)
         {
-            string source_file1 = ConfigurationManager.AppSettings.Get("first_source_csv_file_path");
-            string source_file2 = ConfigurationManager.AppSettings.Get("second_source_csv_file_path");
+            string source = ConfigurationManager.AppSettings.Get("SOURCE_PATH");
+            string target = ConfigurationManager.AppSettings.Get("TARGET_PATH");
+            string databaseName = ConfigurationManager.AppSettings.Get("DATABASE_FILE_NAME");
+            string sourceDataTableName = "source";
+            string targetDataTableName = "target";
+            string resultDataTableName = "result";
 
+            var sourceDataTable = CSVReader.ReadCSVFile(source, true, sourceDataTableName);
+            var targetDataTable = CSVReader.ReadCSVFile(target, true, targetDataTableName);
 
-
-            var dataTable1 = CSVReader.ReadCSVFile(source_file1, false,"A");
-            var dataTable2 = CSVReader.ReadCSVFile(source_file2, false, "B");
-
-            string databaseName = "temp100.sqlite";
+            
             SqliteHelper.CreateDatabase(databaseName);
 
             var dbConnection = SqliteHelper.Connect(databaseName);
 
-            var table1Text = SqliteHelper.GetCreateTableQuery(dbConnection, dataTable1, "A");
-            var table2Text = SqliteHelper.GetCreateTableQuery(dbConnection, dataTable2, "B");
+            var sourceTableQueryText = SqliteHelper.GetCreateTableQuery(sourceDataTable, sourceDataTableName);
+            var targetTableQueryText = SqliteHelper.GetCreateTableQuery(targetDataTable, targetDataTableName);
 
-            SqliteHelper.CreateTable(dbConnection, table1Text);
-            SqliteHelper.CreateTable(dbConnection, table2Text);
+            SqliteHelper.ExecuteQueryText(dbConnection, sourceTableQueryText);
+            SqliteHelper.ExecuteQueryText(dbConnection, targetTableQueryText);
 
-            SqliteHelper.InsertData(dbConnection, dataTable1);
-            SqliteHelper.InsertData(dbConnection, dataTable2);
+            SqliteHelper.InsertData(dbConnection, sourceDataTable);
+            SqliteHelper.InsertData(dbConnection, targetDataTable);
+
+            var resultTableQueryText = SqliteHelper.GetCreateTableQuery(sourceDataTable, resultDataTableName);
+            SqliteHelper.ExecuteQueryText(dbConnection, resultTableQueryText);
+            SqliteHelper.ExecuteQueryText(dbConnection, "ALTER TABLE " + resultDataTableName + " ADD COLUMN IsAvailable varchar(20);");
+
+            var insertCommonDataQueryText = SqliteHelper.GetQueryTextCommonRecords(sourceDataTable);
+            SqliteHelper.ExecuteQueryText(dbConnection, insertCommonDataQueryText);
+
+            var insertSourceDataOnlyQueryText = SqliteHelper.GetQueryTextLeftRecords(sourceDataTable);
+            SqliteHelper.ExecuteQueryText(dbConnection, insertSourceDataOnlyQueryText);
+
+            var insertTargetDataOnlyQueryText = SqliteHelper.GetQueryTextRightRecords(targetDataTable);
+            SqliteHelper.ExecuteQueryText(dbConnection, insertTargetDataOnlyQueryText);
 
             SqliteHelper.Close(dbConnection);
         }
     }
 }
+//both
+//first
+//second
