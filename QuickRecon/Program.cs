@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Data.Common;
 using System.IO;
 
 using System.Linq;
@@ -16,6 +17,8 @@ namespace QuickRecon
             string source = ConfigurationManager.AppSettings.Get("SOURCE_PATH");
             string target = ConfigurationManager.AppSettings.Get("TARGET_PATH");
             string databaseName = ConfigurationManager.AppSettings.Get("DATABASE_FILE_NAME");
+            string appName = ConfigurationManager.AppSettings.Get("APPLICATION_CONN_STRING");
+
             string sourceDataTableName = "source";
             string targetDataTableName = "target";
             string resultDataTableName = "result";
@@ -23,34 +26,33 @@ namespace QuickRecon
             var sourceDataTable = CSVReader.ReadCSVFile(source, true, sourceDataTableName);
             var targetDataTable = CSVReader.ReadCSVFile(target, true, targetDataTableName);
 
-            
-            SqliteHelper.CreateDatabase(databaseName);
+            DbConnection connection = DbHelper.GetConnection(appName);
 
-            var dbConnection = SqliteHelper.Connect(databaseName);
 
-            var sourceTableQueryText = SqliteHelper.GetCreateTableQuery(sourceDataTable, sourceDataTableName);
-            var targetTableQueryText = SqliteHelper.GetCreateTableQuery(targetDataTable, targetDataTableName);
 
-            SqliteHelper.ExecuteQueryText(dbConnection, sourceTableQueryText);
-            SqliteHelper.ExecuteQueryText(dbConnection, targetTableQueryText);
+            var sourceTableQueryText = DbHelper.GetCreateTableQuery(sourceDataTable, sourceDataTableName);
+            var targetTableQueryText = DbHelper.GetCreateTableQuery(targetDataTable, targetDataTableName);
 
-            SqliteHelper.InsertData(dbConnection, sourceDataTable);
-            SqliteHelper.InsertData(dbConnection, targetDataTable);
+            DbHelper.ExecuteQueryText(connection, sourceTableQueryText);
+            DbHelper.ExecuteQueryText(connection, targetTableQueryText);
 
-            var resultTableQueryText = SqliteHelper.GetCreateTableQuery(sourceDataTable, resultDataTableName);
-            SqliteHelper.ExecuteQueryText(dbConnection, resultTableQueryText);
-            SqliteHelper.ExecuteQueryText(dbConnection, "ALTER TABLE " + resultDataTableName + " ADD COLUMN IsAvailable varchar(20);");
+            DbHelper.InsertData(appName, connection, sourceDataTable);
+            DbHelper.InsertData(appName, connection, targetDataTable);
 
-            var insertCommonDataQueryText = SqliteHelper.GetQueryTextCommonRecords(sourceDataTable);
-            SqliteHelper.ExecuteQueryText(dbConnection, insertCommonDataQueryText);
+            var resultTableQueryText = DbHelper.GetCreateTableQuery(sourceDataTable, resultDataTableName);
+            DbHelper.ExecuteQueryText(connection, resultTableQueryText);
+            DbHelper.ExecuteQueryText(connection, "ALTER TABLE " + resultDataTableName + " ADD COLUMN IsAvailable varchar(20);");
 
-            var insertSourceDataOnlyQueryText = SqliteHelper.GetQueryTextLeftRecords(sourceDataTable);
-            SqliteHelper.ExecuteQueryText(dbConnection, insertSourceDataOnlyQueryText);
+            var insertCommonDataQueryText = DbHelper.GetQueryTextCommonRecords(sourceDataTable);
+            DbHelper.ExecuteQueryText(connection, insertCommonDataQueryText);
 
-            var insertTargetDataOnlyQueryText = SqliteHelper.GetQueryTextRightRecords(targetDataTable);
-            SqliteHelper.ExecuteQueryText(dbConnection, insertTargetDataOnlyQueryText);
+            var insertSourceDataOnlyQueryText = DbHelper.GetQueryTextLeftRecords(sourceDataTable);
+            DbHelper.ExecuteQueryText(connection, insertSourceDataOnlyQueryText);
 
-            SqliteHelper.Close(dbConnection);
+            var insertTargetDataOnlyQueryText = DbHelper.GetQueryTextRightRecords(targetDataTable);
+            DbHelper.ExecuteQueryText(connection, insertTargetDataOnlyQueryText);
+
+            DbHelper.Close(connection);
         }
     }
 }
