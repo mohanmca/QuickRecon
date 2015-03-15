@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
 using System.Data.Common;
@@ -46,23 +47,23 @@ namespace QuickRecon
             command.ExecuteNonQuery();
         }
 
-        //string sql = "create table highscores (name varchar(20), score int)";
         public static string GetCreateTableQuery(DataTable dataTable, string tableName)
+        {  
+            return dataTable.Columns
+                        .GetColumnNames()
+                        .Select(name => name + " varchar(20),")
+                        .Aggregate("create table " + tableName + " (",
+                                    (current, next) => current + next)
+                        .TrimEnd(',') + ')';
+                    ;
+        }
+
+        private static IEnumerable<string> GetColumnNames(this DataColumnCollection columns)
         {
-            StringBuilder createTableSql = new StringBuilder();
-            createTableSql.Append("create table " + tableName + " (");
+            var columnNames = from c in columns.Cast<DataColumn>()
+                    select c.ColumnName;
 
-            for (int i = 0; i < dataTable.Columns.Count; i++)
-            {
-                createTableSql.Append(dataTable.Columns[i].ColumnName + " varchar(20)");
-                if (i != dataTable.Columns.Count - 1)
-                {
-                    createTableSql.Append(",");
-                }
-            }
-            createTableSql.Append(")");
-
-            return createTableSql.ToString();
+            return columnNames;
         }
 
         public static void InsertData(string appName,  DbConnection connection, DataTable dataTable)

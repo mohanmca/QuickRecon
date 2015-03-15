@@ -19,6 +19,7 @@ TODO - 10-Mar-2015
 -----------------------
 1. change to dbprovider factory to make it database agnostic https://msdn.microsoft.com/en-us/library/dd0w4a2z(v=vs.110).aspx
 http://www.codeproject.com/Articles/55890/Don-t-hard-code-your-DataProviders
+https://msdn.microsoft.com/en-us/library/dd0w4a2z(v=vs.110).aspx
 1. Remove all the hard-coded string from project
 2. apply for 3 jobs, visa job and informatica job in linked in
 3. remove all the for loop.
