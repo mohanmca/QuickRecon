@@ -48,29 +48,21 @@ namespace QuickRecon
         }
 
         public static string GetCreateTableQuery(DataTable dataTable, string tableName)
-        {  
+        {
             return dataTable.Columns
                         .GetColumnNames()
                         .Select(name => name + " varchar(20),")
                         .Aggregate("create table " + tableName + " (",
                                     (current, next) => current + next)
                         .TrimEnd(',') + ')';
-                    ;
+            ;
         }
 
-        private static IEnumerable<string> GetColumnNames(this DataColumnCollection columns)
-        {
-            var columnNames = from c in columns.Cast<DataColumn>()
-                    select c.ColumnName;
-
-            return columnNames;
-        }
-
-        public static void InsertData(string appName,  DbConnection connection, DataTable dataTable)
+        public static void InsertData(string appName, DbConnection connection, DataTable dataTable)
         {
 
-              ConnectionStringSettings connectionStringSettings =
-                 ConfigurationManager.ConnectionStrings[appName];
+            ConnectionStringSettings connectionStringSettings =
+               ConfigurationManager.ConnectionStrings[appName];
 
             DbProviderFactory factory =
               DbProviderFactories.GetFactory(connectionStringSettings.ProviderName);
@@ -92,7 +84,7 @@ namespace QuickRecon
             {
                 var newRow = dataSet.Tables[0].NewRow();
 
-                createRow(dataTable.Rows[i], newRow);
+                CreateRow(dataTable.Rows[i], newRow);
 
                 dataSet.Tables[0].Rows.Add(newRow);
             }
@@ -100,9 +92,8 @@ namespace QuickRecon
             cmdBuilder.DataAdapter = dataAdapter;
             dataAdapter.Update(dataSet);
         }
-        private static void createRow(DataRow memoryRow, DataRow sqlRow)
+        private static void CreateRow(DataRow memoryRow, DataRow sqlRow)
         {
-            //memoryRow.ItemArray.Select((o, i) => sqlRow.ItemArray[i] = o);
             memoryRow.ItemArray.Select((o, i) => sqlRow[i] = o).AsParallel().ToArray();
         }
         public static string GetQueryTextCommonRecords(DataTable dataTable)
@@ -110,7 +101,8 @@ namespace QuickRecon
             StringBuilder query = new StringBuilder();
             query.Append("insert into result ");
             query.Append("select ");
-            query.Append(GetColumnNames(dataTable, "s"));
+            query.Append(GetColumnNamesWithAlias(dataTable, "s"));
+            query.Append(",");
             query.Append("\"Available in both\"");
             query.Append(" from source s join target t on s.");
             query.Append("date");
@@ -131,7 +123,8 @@ namespace QuickRecon
             StringBuilder query = new StringBuilder();
             query.Append("insert into result ");
             query.Append("select ");
-            query.Append(GetColumnNames(dataTable, "s"));
+            query.Append(GetColumnNamesWithAlias(dataTable, "s"));
+            query.Append(",");
             query.Append("\"Available in source\"");
             query.Append(" from source s left join target t on s.");
             query.Append("date");
@@ -153,7 +146,8 @@ namespace QuickRecon
             StringBuilder query = new StringBuilder();
             query.Append("insert into result ");
             query.Append("select ");
-            query.Append(GetColumnNames(dataTable, "t"));
+            query.Append(GetColumnNamesWithAlias(dataTable, "t"));
+            query.Append(",");
             query.Append("\"Available in target\"");
             query.Append(" from  target t  left join source s on s.");
             query.Append("date");
@@ -170,17 +164,21 @@ namespace QuickRecon
             return query.ToString();
         }
 
-        public static string GetColumnNames(DataTable dataTable, string aliasName)
+        private static IEnumerable<string> GetColumnNames(this DataColumnCollection columns)
         {
-            StringBuilder columnNames = new StringBuilder();
+            var columnNames = from c in columns.Cast<DataColumn>()
+                              select c.ColumnName;
 
-            for (int i = 0; i < dataTable.Columns.Count; i++)
-            {
-                columnNames.Append(aliasName + "." + dataTable.Columns[i].ColumnName + ",");
-            }
-            return columnNames.ToString();
+            return columnNames;
         }
 
-
+        private static string GetColumnNamesWithAlias(this DataTable dataTable, string aliasName)
+        {
+            return dataTable.Columns
+                 .GetColumnNames()
+                 .Select(column => aliasName + "." + column + ",")
+                 .Aggregate((current, next) => current + next)
+                 .TrimEnd(',');
+        }
     }
 }
