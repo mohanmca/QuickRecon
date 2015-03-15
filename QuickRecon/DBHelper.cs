@@ -7,6 +7,7 @@ using System.Data.SQLite;
 using System.Linq;
 using System.Text;
 
+
 namespace QuickRecon
 {
     public static class DbHelper
@@ -49,13 +50,12 @@ namespace QuickRecon
 
         public static string GetCreateTableQuery(DataTable dataTable, string tableName)
         {
-            return dataTable.Columns
-                        .GetColumnNames()
-                        .Select(name => name + " varchar(20),")
-                        .Aggregate("create table " + tableName + " (",
-                                    (current, next) => current + next)
-                        .TrimEnd(',') + ')';
-            ;
+            return dataTable
+                    .GetColumnNames()
+                    .Select(name => name + " varchar(20),")
+                    .Aggregate("create table " + tableName + " (",
+                    (current, next) => current + next)
+                    .TrimEnd(',') + ')';
         }
 
         public static void InsertData(string appName, DbConnection connection, DataTable dataTable)
@@ -79,15 +79,15 @@ namespace QuickRecon
             var dataSet = new DataSet();
             dataAdapter.Fill(dataSet);
 
-            //dataSet.Tables[0].TableName = tableName;
-            for (int i = 0; i < dataTable.Rows.Count; i++)
-            {
-                var newRow = dataSet.Tables[0].NewRow();
-
-                CreateRow(dataTable.Rows[i], newRow);
-
-                dataSet.Tables[0].Rows.Add(newRow);
-            }
+          
+            Array.ForEach(dataTable.GetRows().ToArray(),
+                row =>
+                {
+                    var newRow = dataSet.Tables[0].NewRow();
+                    CreateRow(row, newRow);
+                    dataSet.Tables[0].Rows.Add(newRow);
+                });
+            
             DbCommandBuilder cmdBuilder = factory.CreateCommandBuilder();
             cmdBuilder.DataAdapter = dataAdapter;
             dataAdapter.Update(dataSet);
@@ -101,7 +101,7 @@ namespace QuickRecon
             StringBuilder query = new StringBuilder();
             query.Append("insert into result ");
             query.Append("select ");
-            query.Append(GetColumnNamesWithAlias(dataTable, "s"));
+            query.Append(dataTable.GetColumnNamesWithAlias("s"));
             query.Append(",");
             query.Append("\"Available in both\"");
             query.Append(" from source s join target t on s.");
@@ -123,7 +123,7 @@ namespace QuickRecon
             StringBuilder query = new StringBuilder();
             query.Append("insert into result ");
             query.Append("select ");
-            query.Append(GetColumnNamesWithAlias(dataTable, "s"));
+            query.Append(dataTable.GetColumnNamesWithAlias("s"));
             query.Append(",");
             query.Append("\"Available in source\"");
             query.Append(" from source s left join target t on s.");
@@ -146,7 +146,7 @@ namespace QuickRecon
             StringBuilder query = new StringBuilder();
             query.Append("insert into result ");
             query.Append("select ");
-            query.Append(GetColumnNamesWithAlias(dataTable, "t"));
+            query.Append(dataTable.GetColumnNamesWithAlias("t"));
             query.Append(",");
             query.Append("\"Available in target\"");
             query.Append(" from  target t  left join source s on s.");
@@ -162,23 +162,6 @@ namespace QuickRecon
             query.Append("symbol");
             query.Append(" where s.date is null and s.symbol is null");
             return query.ToString();
-        }
-
-        private static IEnumerable<string> GetColumnNames(this DataColumnCollection columns)
-        {
-            var columnNames = from c in columns.Cast<DataColumn>()
-                              select c.ColumnName;
-
-            return columnNames;
-        }
-
-        private static string GetColumnNamesWithAlias(this DataTable dataTable, string aliasName)
-        {
-            return dataTable.Columns
-                 .GetColumnNames()
-                 .Select(column => aliasName + "." + column + ",")
-                 .Aggregate((current, next) => current + next)
-                 .TrimEnd(',');
         }
     }
 }
